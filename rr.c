@@ -201,7 +201,7 @@ int main(int argc, char *argv[])
       if(current_process->remaining_time <= quantum_length){
         completed_processes++;
         total_waiting_time += (time + current_process->remaining_time - current_process->arrival_time - current_process->burst_time);
-        total_response_time += (time - current_process->response_time);
+        total_response_time += (time - current_process->response_time - current_process->waiting_time);
         time += current_process->remaining_time;
         current_process->remaining_time = 0;
       } else {
