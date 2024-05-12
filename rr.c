@@ -8,6 +8,9 @@
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <Kernel/sys/queue.h>
+
+#define min(x, y) ((x) < (y) ? (x) : (y))
 
 typedef uint32_t u32;
 typedef int32_t i32;
@@ -93,10 +96,7 @@ u32 next_int_from_c_str(const char *data)
   return current;
 }
 
-void init_processes(const char *path,
-                    struct process **process_data,
-                    u32 *process_size)
-{
+void init_processes(const char *path, struct process **process_data, u32 *process_size){
   int fd = open(path, O_RDONLY);
   if (fd == -1)
   {
@@ -165,6 +165,53 @@ int main(int argc, char *argv[])
   u32 total_response_time = 0;
 
   /* Your code here */
+  struct process_list ready_queue;
+    TAILQ_INIT(&ready_queue);
+
+    u32 current_time = 0;
+    u32 completed_processes = 0;
+
+// Loop until all the processes are executed
+while (completed_processes < size) {
+    // Add the processes to the ready queue that have arrived at the current time
+    for (u32 i = 0; i < size; ++i) {
+        if (data[i].arrival_time <= current_time && data[i].burst_time > 0 && data[i].pointers.tqe_prev == NULL) {
+            TAILQ_INSERT_TAIL(&ready_queue, &data[i], pointers);
+            data[i].response_time = current_time - data[i].arrival_time; // Calculate response time
+        }
+    }
+
+    // If the ready queue is empty, just increase the current time
+    if (TAILQ_EMPTY(&ready_queue)) {
+        current_time++;
+        continue;
+    }
+
+    // Get the process from the head of the ready queue and execute it for the quantum length
+    struct process *current_process = TAILQ_FIRST(&ready_queue);
+    TAILQ_REMOVE(&ready_queue, current_process, pointers);
+    u32 execution_time = min(current_process->burst_time, quantum_length);
+    current_process->burst_time -= execution_time;
+
+    // Increase the current time by the execution time
+    current_time += execution_time;
+
+    // Add the current process back to the ready queue if it has not completed
+    if (current_process->burst_time > 0) {
+        TAILQ_INSERT_TAIL(&ready_queue, current_process, pointers);
+    } else {
+        completed_processes++;
+        total_waiting_time += current_time - current_process->arrival_time - execution_time; // Calculate waiting time
+    }
+}
+
+// Calculate average waiting and response times
+for (u32 i = 0; i < size; ++i) {
+    total_response_time += data[i].response_time;
+}
+total_waiting_time /= size;
+total_response_time /= size;
+
   
   /* End of "Your code here" */
 
