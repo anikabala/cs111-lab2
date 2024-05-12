@@ -21,6 +21,11 @@ struct process
   TAILQ_ENTRY(process) pointers;
 
   /* Additional fields here */
+  
+  u32 waiting_time; //track the time we wait so we can return it
+  u32 response_time; //track the response time so we can return it
+  u32 remaining_time; //we want to track the time left
+
   /* End of "Additional fields here" */
 };
 
