@@ -174,17 +174,32 @@ int main(int argc, char *argv[])
     struct process_list process_queue; //create a process list queue
     TAILQ_INIT(&process_queue); //initialize the queue
 
+    bool readd = false;
+    struct process *process_to_readd = NULL;
+    
+    for(u32 i = 0; i < size; i++){
+      data[i].remaining_time = -1;
+    }
+
     //the initialization -- taking in new processes and setting their fields
     while(completed_processes < size){
 
       //making sure to take in processes as they come, initialize, add to queue
       for(u32 i = 0; i < size; i++){
-        if(data[i].arrival_time <= time & data[i].burst_time > 0 && data[i].pointers.tqe_prev == NULL){
-          data[i].remaining_time = data[i].burst_time;
-          data[i].response_time = time;
-          TAILQ_INSERT_TAIL(&process_queue, &data[i], pointers);
+        if(data[i].arrival_time <= time && data[i].burst_time > 0 && data[i].pointers.tqe_prev == NULL){
+          if(data[i].remaining_time == -1){
+            data[i].remaining_time = data[i].burst_time;
+            //potential problem below
+            data[i].response_time = time;
+            TAILQ_INSERT_TAIL(&process_queue, &data[i], pointers);
+          }
         }
       }
+        if(readd){
+          TAILQ_INSERT_TAIL(&process_queue, process_to_readd, pointers);
+          readd = false;
+        }
+
 
       //if we have no more processes we are done!
       if(TAILQ_EMPTY(&process_queue)){
@@ -195,21 +210,28 @@ int main(int argc, char *argv[])
       //start the handling of processes
       struct process *current_process = TAILQ_FIRST(&process_queue);
       u32 process_start_time = time;
+      //problem line below
       current_process->response_time = process_start_time - current_process->arrival_time; // Update response time
       TAILQ_REMOVE(&process_queue, current_process, pointers);
 
       if(current_process->remaining_time <= quantum_length){
         completed_processes++;
+        //also potential probs
         total_waiting_time += (time + current_process->remaining_time - current_process->arrival_time - current_process->burst_time);
+        //don't keep track of current wait time anywhere lol
         total_response_time += (time - current_process->response_time - current_process->waiting_time);
         time += current_process->remaining_time;
         current_process->remaining_time = 0;
+        readd = false;
       } else {
         current_process->remaining_time -= quantum_length;
-        current_process->response_time += (process_start_time - current_process->arrival_time);
+        // current_process->response_time += (process_start_time - current_process->arrival_time);
+        //obvious problem LOL below
         total_waiting_time += (time + quantum_length - current_process->arrival_time - current_process->burst_time);
         time += quantum_length;
-        TAILQ_INSERT_TAIL(&process_queue, current_process, pointers);
+        process_to_readd = current_process;
+        readd = true;
+        // TAILQ_INSERT_TAIL(&process_queue, current_process, pointers);
       }
     }
 
